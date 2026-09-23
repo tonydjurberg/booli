@@ -236,7 +236,7 @@ class BooliScraperApp:
         if self._pw is None:
             self._pw = sync_playwright().start()
         last_error = None
-        for channel in ("msedge", "chrome"):
+        for channel in ("chrome",):
             try:
                 self.context = self._pw.chromium.launch_persistent_context(
                     str(self.profile_dir),
@@ -245,14 +245,14 @@ class BooliScraperApp:
                     viewport={"width": 1440, "height": 1000},
                     accept_downloads=True,
                 )
-                self.log_msg(f"Browser started using {channel}.")
+                self.log_msg(f"Browser started using Google Chrome ({channel}).")
                 break
             except Exception as exc:
                 last_error = exc
                 self.log_msg(f"Could not start {channel}: {exc}")
         if self.context is None:
             raise RuntimeError(
-                "Could not start Microsoft Edge or Google Chrome. Install Edge or Chrome, then restart. "
+                "Could not start Google Chrome. Install Chrome, then restart. "
                 f"Last error: {last_error}"
             )
         # Never reuse a restored tab that may still be navigating. Start from a clean page.
@@ -305,7 +305,7 @@ class BooliScraperApp:
         self.pause_btn.configure(state="disabled")
         self.worker = threading.Thread(target=self.worker_main, daemon=True)
         self.worker.start()
-        self.set_status("Opening Microsoft Edge and Booli...")
+        self.set_status("Opening Google Chrome and Booli...")
 
     def start(self):
         if not self.worker or not self.worker.is_alive():
@@ -613,7 +613,7 @@ class BooliScraperApp:
             self.safe_goto(BASE_URL)
             self.page.wait_for_timeout(1000)
             self.browser_ready_event.set()
-            self.log_msg("Microsoft Edge opened. Credentials entered here are used only for this run and are not written to disk.")
+            self.log_msg("Google Chrome opened. Credentials entered here are used only for this run and are not written to disk.")
 
             try:
                 login_required = "login" in self.page.url.lower()
