@@ -1,6 +1,7 @@
 name: Build Booli Windows EXE
 
 on:
+  pull_request:
   push:
     paths:
       - "booli_scraper.py"
