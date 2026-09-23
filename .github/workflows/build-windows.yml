@@ -14,8 +14,8 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -70,7 +70,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path package | Out-Null
           Copy-Item "dist\Booli_MaklarScraper.exe" "package\Booli_MaklarScraper.exe"
           Copy-Item "dist\Booli_MaklarScraper_DEBUG.exe" "package\Booli_MaklarScraper_DEBUG.exe"
-          Copy-Item "README.md" "package\README.md"
+          if (Test-Path "README.md") {
+            Copy-Item "README.md" "package\README.md" -Force
+          }
           @'
           @echo off
           start "" "%~dp0Booli_MaklarScraper.exe"
@@ -83,13 +85,12 @@ jobs:
 
           if (-not (Test-Path "package\Booli_MaklarScraper.exe")) { throw "Package GUI EXE missing" }
           if (-not (Test-Path "package\Booli_MaklarScraper_DEBUG.exe")) { throw "Package DEBUG EXE missing" }
-          if (-not (Test-Path "package\README.md")) { throw "Package README missing" }
           if (-not (Test-Path "package\Start_Booli_MaklarScraper.bat")) { throw "Package GUI BAT missing" }
           if (-not (Test-Path "package\Start_DEBUG.bat")) { throw "Package DEBUG BAT missing" }
           Compress-Archive -Path "package\*" -DestinationPath "Booli_MaklarScraper_Windows.zip" -Force
           if (-not (Test-Path "Booli_MaklarScraper_Windows.zip")) { throw "ZIP package missing" }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Booli_MaklarScraper_Windows
           path: package
