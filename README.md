@@ -15,3 +15,6 @@ Real Windows GUI scraper for Booli's Swedish agent directory.
 
 Output:
 %LOCALAPPDATA%\BooliMaklarScraper\export\booli_maklare.csv
+
+
+Build verification marker: Windows workflow package ZIP enabled.
