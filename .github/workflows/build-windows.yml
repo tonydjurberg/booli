@@ -85,6 +85,8 @@ jobs:
           if (-not (Test-Path "package\README.md")) { throw "Package README missing" }
           if (-not (Test-Path "package\Start_Booli_MaklarScraper.bat")) { throw "Package GUI BAT missing" }
           if (-not (Test-Path "package\Start_DEBUG.bat")) { throw "Package DEBUG BAT missing" }
+          Compress-Archive -Path "package\*" -DestinationPath "Booli_MaklarScraper_Windows.zip" -Force
+          if (-not (Test-Path "Booli_MaklarScraper_Windows.zip")) { throw "ZIP package missing" }
 
       - uses: actions/upload-artifact@v4
         with:
