@@ -255,7 +255,41 @@ class BooliScraperApp:
                 "Could not start Microsoft Edge or Google Chrome. Install Edge or Chrome, then restart. "
                 f"Last error: {last_error}"
             )
-        self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+        # Never reuse a restored tab that may still be navigating. Start from a clean page.
+        for existing in list(self.context.pages):
+            try:
+                if not existing.is_closed():
+                    existing.close(run_before_unload=False)
+            except Exception:
+                pass
+        self.page = self.context.new_page()
+
+    def safe_goto(self, url, attempts=4, timeout=60000):
+        """Navigate while tolerating transient duplicate-navigation events from Booli/Edge."""
+        last_error = None
+        for attempt in range(1, attempts + 1):
+            if self.stop_event.is_set():
+                return False
+            try:
+                self.page.goto(url, wait_until="commit", timeout=timeout)
+                try:
+                    self.page.wait_for_load_state("domcontentloaded", timeout=20000)
+                except Exception:
+                    pass
+                return True
+            except Exception as exc:
+                last_error = exc
+                msg = str(exc)
+                transient = "interrupted by another navigation" in msg.lower() or "navigation was interrupted" in msg.lower()
+                if transient and attempt < attempts:
+                    self.log_msg(f"Navigation retry {attempt}/{attempts - 1}: Booli started another navigation.")
+                    try:
+                        self.page.wait_for_timeout(1200 * attempt)
+                    except Exception:
+                        pass
+                    continue
+                raise last_error
+        return False
 
     def open_login(self):
         if self.worker and self.worker.is_alive():
@@ -374,7 +408,7 @@ class BooliScraperApp:
                 break
 
             url = BASE_URL if page_number == 1 else f"{BASE_URL}?page={page_number}"
-            self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            self.safe_goto(url)
             try:
                 self.page.wait_for_load_state("networkidle", timeout=8000)
             except Exception:
@@ -576,7 +610,7 @@ class BooliScraperApp:
     def worker_main(self):
         try:
             self.launch_browser(False)
-            self.page.goto(BASE_URL, wait_until="domcontentloaded", timeout=60000)
+            self.safe_goto(BASE_URL)
             self.page.wait_for_timeout(1000)
             self.browser_ready_event.set()
             self.log_msg("Microsoft Edge opened. Credentials entered here are used only for this run and are not written to disk.")
