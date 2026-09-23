@@ -1,0 +1,92 @@
+name: Build Booli Windows EXE
+
+on:
+  push:
+    paths:
+      - "booli_scraper.py"
+      - "requirements.txt"
+      - "README.md"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip -r requirements.txt pyinstaller
+
+      - name: Python syntax check
+        run: python -m py_compile booli_scraper.py
+
+      - name: Python self-test
+        run: python booli_scraper.py --self-test
+
+      - name: Build GUI EXE
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name Booli_MaklarScraper --collect-all playwright booli_scraper.py
+
+      - name: Build DEBUG EXE
+        run: pyinstaller --noconfirm --clean --onefile --console --name Booli_MaklarScraper_DEBUG --collect-all playwright booli_scraper.py
+
+      - name: Verify EXEs
+        shell: pwsh
+        run: |
+          foreach ($name in @("Booli_MaklarScraper.exe","Booli_MaklarScraper_DEBUG.exe")) {
+            $exe = "dist\$name"
+            if (-not (Test-Path $exe)) { throw "$name was not created" }
+            $size = (Get-Item $exe).Length
+            if ($size -lt 1000000) { throw "$name is unexpectedly small: $size bytes" }
+            Write-Host "$name verified: $size bytes"
+          }
+
+      - name: DEBUG EXE runtime self-test
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist\Booli_MaklarScraper_DEBUG.exe").Path
+          & $exe --self-test
+          if ($LASTEXITCODE -ne 0) { throw "DEBUG EXE self-test failed with exit code $LASTEXITCODE" }
+
+      - name: GUI startup smoke test
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist\Booli_MaklarScraper.exe").Path
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) {
+            throw "GUI EXE exited during startup. ExitCode=$($p.ExitCode)"
+          }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "GUI startup smoke test passed."
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item "dist\Booli_MaklarScraper.exe" "package\Booli_MaklarScraper.exe"
+          Copy-Item "dist\Booli_MaklarScraper_DEBUG.exe" "package\Booli_MaklarScraper_DEBUG.exe"
+          Copy-Item "README.md" "package\README.md"
+          @'
+          @echo off
+          start "" "%~dp0Booli_MaklarScraper.exe"
+          '@ | Set-Content -Encoding ASCII "package\Start_Booli_MaklarScraper.bat"
+          @'
+          @echo off
+          "%~dp0Booli_MaklarScraper_DEBUG.exe"
+          pause
+          '@ | Set-Content -Encoding ASCII "package\Start_DEBUG.bat"
+
+          if (-not (Test-Path "package\Booli_MaklarScraper.exe")) { throw "Package GUI EXE missing" }
+          if (-not (Test-Path "package\Booli_MaklarScraper_DEBUG.exe")) { throw "Package DEBUG EXE missing" }
+          if (-not (Test-Path "package\README.md")) { throw "Package README missing" }
+          if (-not (Test-Path "package\Start_Booli_MaklarScraper.bat")) { throw "Package GUI BAT missing" }
+          if (-not (Test-Path "package\Start_DEBUG.bat")) { throw "Package DEBUG BAT missing" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Booli_MaklarScraper_Windows
+          path: package
